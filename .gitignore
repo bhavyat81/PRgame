@@ -1,0 +1,30 @@
+# Godot 4+ specific ignores
+.godot/
+
+# Godot-specific from global config
+export.cfg
+export_presets.cfg.bak
+
+# Android build artifacts
+android/build/
+
+# iOS build artifacts
+ios/
+
+# Godot import cache
+*.import
+
+# Compiled binaries
+*.exe
+*.x86_64
+*.x86
+*.arm64
+*.arm32
+
+# Mobile exports
+*.apk
+*.aab
+*.ipa
+
+# macOS artifacts
+*.dSYM

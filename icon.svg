@@ -1,0 +1,18 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <!-- Red background (Canadian flag colours) -->
+  <rect width="128" height="128" fill="#FF0000" rx="16"/>
+  <!-- White center panel -->
+  <rect x="32" y="16" width="64" height="96" fill="#FFFFFF"/>
+  <!-- Simplified maple leaf path -->
+  <path d="
+    M64,20
+    L67,36 L76,28 L72,42 L84,38 L78,50
+    L92,48 L82,58 L88,72
+    L72,66 L68,80 L64,66
+    L60,80 L56,66 L40,72
+    L46,58 L36,48 L50,50
+    L44,38 L56,42 L52,28
+    L61,36 Z
+    M60,80 L60,104 L68,104 L68,80 Z
+  " fill="#FF0000"/>
+</svg>

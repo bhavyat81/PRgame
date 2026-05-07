@@ -1,0 +1,6 @@
+[gd_scene load_steps=2 format=3 uid="uid://obstacle12345678"]
+
+[ext_resource type="Script" path="res://scripts/Obstacle.gd" id="1_obstacle01"]
+
+[node name="Obstacle" type="Area2D"]
+script = ExtResource("1_obstacle01")
