@@ -2,6 +2,12 @@ extends Node2D
 
 # Main game loop — the IRCC application process gauntlet!
 # Obstacles scroll from right to left while the player stays at a fixed x position.
+#
+# NOTE: We deliberately AVOID referencing global class_names like `Player`,
+# `HUD`, `Obstacle`, `Powerup` as type hints here, because Godot 4.6 may
+# parse this script before the global class registry is fully populated
+# on first project load — causing "Could not find type X" parse errors.
+# Instead, we preload the scripts and access their enums via the const refs.
 
 const GROUND_Y: float = 870.0    # y-coordinate of the ground surface
 const PLAYER_X: float = 280.0    # fixed horizontal position of the player
@@ -13,14 +19,20 @@ const POWERUP_SCENE  := preload("res://scenes/Powerup.tscn")
 const PLAYER_SCENE   := preload("res://scenes/Player.tscn")
 const HUD_SCENE      := preload("res://scenes/HUD.tscn")
 
+# Preload scripts so we can access enums (Type) without depending on the
+# global class_name registry being populated at parse time.
+const ObstacleScript := preload("res://scripts/Obstacle.gd")
+const PowerupScript  := preload("res://scripts/Powerup.gd")
+
 var scroll_speed: float = 400.0
 var _spawn_timer: float = 0.0
 var _spawn_interval: float = 2.0
 var _game_active: bool = false
 var _lives: int = 3
 
-var _player: Player
-var _hud: HUD
+# Untyped on purpose — see note at top of file.
+var _player
+var _hud
 var _obstacles: Node2D
 var _powerups: Node2D
 
@@ -101,14 +113,14 @@ func _draw_mountains() -> void:
 
 
 func _spawn_player() -> void:
-	_player = PLAYER_SCENE.instantiate() as Player
+	_player = PLAYER_SCENE.instantiate()
 	_player.position = Vector2(PLAYER_X, GROUND_Y)
 	_player.hit_obstacle.connect(_on_player_lost_life)
 	add_child(_player)
 
 
 func _spawn_hud() -> void:
-	_hud = HUD_SCENE.instantiate() as HUD
+	_hud = HUD_SCENE.instantiate()
 	_hud.jump_pressed.connect(_on_jump_pressed)
 	_hud.duck_pressed.connect(_on_duck_pressed)
 	_hud.duck_released.connect(_on_duck_released)
@@ -148,20 +160,21 @@ func _physics_process(delta: float) -> void:
 # ── Spawning ──────────────────────────────────────────────────────────────────
 
 func _spawn_obstacle() -> void:
-	var obs := OBSTACLE_SCENE.instantiate() as Obstacle
+	var obs = OBSTACLE_SCENE.instantiate()
 
-	# Pick a random obstacle type
+	# Pick a random obstacle type (using preloaded script — no class_name dep)
 	var all_types: Array = [
-		Obstacle.Type.ADR,
-		Obstacle.Type.PROCESSING_DELAY,
-		Obstacle.Type.REFUSAL,
-		Obstacle.Type.MEDICALS,
-		Obstacle.Type.BIOMETRICS,
+		ObstacleScript.Type.ADR,
+		ObstacleScript.Type.PROCESSING_DELAY,
+		ObstacleScript.Type.REFUSAL,
+		ObstacleScript.Type.MEDICALS,
+		ObstacleScript.Type.BIOMETRICS,
 	]
-	var t: Obstacle.Type = all_types[randi() % all_types.size()]
+	var t: int = all_types[randi() % all_types.size()]
 
 	# Flying obstacles spawn high — player must duck under them
-	var y: float = FLY_Y if (t == Obstacle.Type.REFUSAL or t == Obstacle.Type.BIOMETRICS) else GROUND_Y
+	var is_flying: bool = (t == ObstacleScript.Type.REFUSAL or t == ObstacleScript.Type.BIOMETRICS)
+	var y: float = FLY_Y if is_flying else GROUND_Y
 
 	obs.position = Vector2(2050.0, y)
 	_obstacles.add_child(obs)
@@ -170,24 +183,24 @@ func _spawn_obstacle() -> void:
 
 
 func _spawn_powerup() -> void:
-	var pow := POWERUP_SCENE.instantiate() as Powerup
+	var pow_node = POWERUP_SCENE.instantiate()
 
 	# Weighted random: NOC coins most common, PNP nomination rare
 	var roll: float = randf()
-	var t: Powerup.Type
+	var t: int
 	if roll < 0.50:
-		t = Powerup.Type.NOC_COIN
+		t = PowerupScript.Type.NOC_COIN
 	elif roll < 0.74:
-		t = Powerup.Type.CRS_BOOST
+		t = PowerupScript.Type.CRS_BOOST
 	elif roll < 0.90:
-		t = Powerup.Type.LMIA_SHIELD
+		t = PowerupScript.Type.LMIA_SHIELD
 	else:
-		t = Powerup.Type.PNP_NOMINATION  # 10% — rare government gift!
+		t = PowerupScript.Type.PNP_NOMINATION  # 10% — rare government gift!
 
-	pow.position = Vector2(2050.0, POWERUP_Y)
-	_powerups.add_child(pow)
-	pow.setup(t, scroll_speed)
-	pow.collected.connect(_on_powerup_collected)
+	pow_node.position = Vector2(2050.0, POWERUP_Y)
+	_powerups.add_child(pow_node)
+	pow_node.setup(t, scroll_speed)
+	pow_node.collected.connect(_on_powerup_collected)
 
 
 # ── Signal handlers ───────────────────────────────────────────────────────────
@@ -206,20 +219,20 @@ func _on_player_lost_life() -> void:
 
 func _on_powerup_collected(type: int) -> void:
 	match type:
-		Powerup.Type.NOC_COIN:
+		PowerupScript.Type.NOC_COIN:
 			# Small but steady — like adding a NOC code to your profile
 			GameState.current_score += 50
-		Powerup.Type.CRS_BOOST:
+		PowerupScript.Type.CRS_BOOST:
 			# Temporary speed boost — like getting a CRS bump from a new job
 			GameState.current_score += 100
 			scroll_speed *= 1.25
 			if _player:
 				_player.is_invincible = true
 				_player.invincible_timer = 3.0
-		Powerup.Type.PNP_NOMINATION:
+		PowerupScript.Type.PNP_NOMINATION:
 			# Huge points — Provincial Nominee Program is a game-changer!
 			GameState.current_score += 600
-		Powerup.Type.LMIA_SHIELD:
+		PowerupScript.Type.LMIA_SHIELD:
 			# LMIA job offer absorbs one hit
 			if _player:
 				_player.has_shield = true
@@ -245,9 +258,13 @@ func _on_duck_released() -> void:
 
 func _win() -> void:
 	_game_active = false
-	get_tree().change_scene_to_file("res://scenes/WinScreen.tscn")
+	call_deferred("_change_scene", "res://scenes/WinScreen.tscn")
 
 
 func _game_over() -> void:
 	_game_active = false
-	get_tree().change_scene_to_file("res://scenes/GameOverScreen.tscn")
+	call_deferred("_change_scene", "res://scenes/GameOverScreen.tscn")
+
+
+func _change_scene(path: String) -> void:
+	get_tree().change_scene_to_file(path)
